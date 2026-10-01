@@ -3,7 +3,7 @@
 **Project:** ETL pipeline and data warehouse for the PhysioNet/CinC Challenge 2019 sepsis dataset
 **Scope of this document:** the Data Warehouses (DW) project only. The Data Mining (DM) project consumes this pipeline's outputs and is out of scope here, except for the hand-off contract (Stage 7).
 **Owner:** 1 person (DW). Consumers: a team of 3 (DM), working on **early sepsis prediction**.
-**Status:** Planning. Revision 3: the independent reviewer agrees it is ready to implement. See [§9 Review log](#9-review-log).
+**Status:** Revision 3 (the independent reviewer agrees it is ready to implement). **M0 done** (2026-10-01): Stage 0 implemented and `sepsis doctor` all green. See [§9 Review log](#9-review-log).
 
 ---
 

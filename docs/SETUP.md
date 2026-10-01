@@ -2,7 +2,7 @@
 
 This guide sets up a development environment for the sepsis data warehouse pipeline. It is written for **Windows 11 + PowerShell** (the primary dev machine). The macOS/Linux equivalents are given where they differ.
 
-> **Note:** the project is in the planning phase. This guide describes the target setup. Commands marked *(Stage N)* become available once that stage of [`PLAN.md`](PLAN.md) is implemented.
+> **Note:** Stage 0 (foundation) is implemented, so sections 1–7 work today. Commands marked *(Stage N)* become available once that stage of [`PLAN.md`](PLAN.md) is implemented; until then they print "Not implemented yet".
 
 ---
 
@@ -45,6 +45,14 @@ macOS/Linux: `uv sync --extra dev && source .venv/bin/activate`.
 
 If PowerShell blocks `Activate.ps1`, run this once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
+**"An Application Control policy has blocked this file" (`sepsis.exe`):** Windows Smart App Control can block the freshly generated, unsigned venv launcher. Use the equivalent module form, which runs through the already-trusted `python.exe`:
+
+```powershell
+python -m sepsis_pipeline doctor      # same as: sepsis doctor
+```
+
+Every `sepsis …` command in this guide works the same way as `python -m sepsis_pipeline …`. The pipeline runs dbt through `python.exe` too, so it doesn't depend on `dbt.exe` either.
+
 **PyCharm:** Settings → Project → Python Interpreter → select `.venv\Scripts\python.exe`. Mark `src/` as *Sources Root*.
 
 ---
@@ -59,28 +67,15 @@ Copy-Item .env.example .env
 
 Expected variables:
 
-```dotenv
-# --- database (docker-compose reads these too) ---
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432            # change to 5433 if a local Postgres already uses 5432
-POSTGRES_DB=sepsis_dw
-POSTGRES_USER=etl_writer
-POSTGRES_PASSWORD=change-me
-DM_READER_PASSWORD=change-me-too
+See `.env.example` for all variables: database host/port/name, the `etl_writer` and `dm_reader` passwords, data/export folders, extract workers, split seed/version and sample size. Replace both passwords with random values, for example:
 
-# --- pipeline ---
-DATA_DIR=./data
-EXPORT_DIR=./exports
-EXTRACT_WORKERS=16
-SPLIT_SEED=42
-SPLIT_VERSION=1
-SAMPLE_SIZE=400               # default for --sample
-
-# --- dbt ---
-DBT_PROFILES_DIR=./dbt/sepsis_dw
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(18))"
 ```
 
-`.env` is gitignored. Never commit real passwords.
+If a local PostgreSQL already uses port 5432, set `POSTGRES_PORT=5433` (or any free port).
+
+`.env` is gitignored. Never commit real passwords. Put comments on their own lines, not after a value.
 
 ---
 
@@ -109,6 +104,8 @@ docker compose exec warehouse psql -U etl_writer -d sepsis_dw -c "\dn" -c "\dx"
 
 You should see the schemas `raw, staging, silver, gold, mart, audit, ts` and the extension `timescaledb`.
 
+Our init scripts (`sql/init/10_schemas.sql`, `20_roles.sh`) are mounted **file by file** into `/docker-entrypoint-initdb.d/`. The image keeps its own TimescaleDB init scripts in that folder, and mounting a whole directory there would hide them.
+
 **Reset the database** (⚠ deletes all warehouse data; the init scripts re-run on the next start):
 
 ```powershell
@@ -120,23 +117,24 @@ docker compose up -d
 
 ## 6. dbt setup
 
+Use the `sepsis dbt` passthrough. It runs any dbt command with the credentials from `.env` and the right project and profiles directories:
+
 ```powershell
-$env:DBT_PROFILES_DIR = "$PWD\dbt\sepsis_dw"   # or rely on .env via the sepsis CLI
-cd dbt\sepsis_dw
-dbt deps          # installs dbt_utils                 (Stage 0)
-dbt debug         # "All checks passed!"               (Stage 0)
-cd ..\..
+sepsis dbt deps          # installs dbt_utils
+sepsis dbt debug         # "All checks passed!"
 ```
 
-macOS/Linux: `export DBT_PROFILES_DIR="$PWD/dbt/sepsis_dw"`.
+Running `dbt` directly also works, but then you must export `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and `DBT_PROFILES_DIR` yourself, because `profiles.yml` reads them with `env_var()`.
 
 ---
 
 ## 7. Health check
 
 ```powershell
-sepsis doctor     # DB reachable, timescaledb present, dbt debug OK, data dirs writable   (Stage 0)
+sepsis doctor
 ```
+
+It checks: `.env` present, DB connection, TimescaleDB extension, layer schemas, audit tables, the `dm_reader` role, `dbt debug`, and writable data/export folders. The command exits with code 1 if any check fails.
 
 ---
 
@@ -165,10 +163,10 @@ sepsis run-all --with-timescale
 **dbt directly** (for model development):
 
 ```powershell
-cd dbt\sepsis_dw
-dbt build --select staging+            # build + test everything downstream of staging
-dbt build --select int_patient_hour_imputed
-dbt docs generate; dbt docs serve      # lineage graph at http://localhost:8080
+sepsis dbt build --select staging+            # build + test everything downstream of staging
+sepsis dbt build --select int_patient_hour_imputed
+sepsis dbt docs generate
+sepsis dbt docs serve                         # lineage graph at http://localhost:8080
 ```
 
 ---
@@ -176,8 +174,9 @@ dbt docs generate; dbt docs serve      # lineage graph at http://localhost:8080
 ## 9. Running tests
 
 ```powershell
-pytest                         # unit + leakage/lineage/LOCF/utility tests + e2e on a sample (creates/drops a sepsis_test DB)
-cd dbt\sepsis_dw; dbt test     # data tests against the warehouse
+python -m pytest               # unit tests; tests marked `db` are skipped if the warehouse isn't running
+python -m pytest -m "not db"   # unit tests only
+sepsis dbt test                # data tests against the warehouse
 ```
 
 ---
@@ -219,8 +218,8 @@ You do **not** need to run the warehouse to start working:
 |---|---|
 | `port is already allocated` / connection refused on 5432 | A local PostgreSQL is running. Set `POSTGRES_PORT=5433` in `.env` and restart compose. |
 | Init SQL didn't run (schemas missing) | Init scripts only run on an **empty** volume. Run `docker compose down -v && docker compose up -d` (deletes data). |
-| `dbt: command not found` | Activate the venv. Check `pip show dbt-core`. |
-| `Could not find profile named 'sepsis_dw'` | `DBT_PROFILES_DIR` is not set or points to the wrong folder. |
+| `An Application Control policy has blocked this file` | Use `python -m sepsis_pipeline …` instead of `sepsis …` (§3). |
+| `Could not find profile named 'sepsis_dw'` / `env var required but not provided` | You ran `dbt` directly. Use `sepsis dbt …`, or export the variables listed in §6. |
 | A dependency fails to install on Python 3.14 | Create a 3.13 venv (`py -3.13 -m venv .venv`). Report which package failed, so the plan's risk table can be updated. |
 | Slow dbt models / Postgres OOM-killed | Raise the WSL 2 memory in `.wslconfig`. Lower `work_mem` in `docker-compose.yml`. Develop with `--sample`. |
 | `could not resize shared memory segment` | `shm_size` is missing or too small in `docker-compose.yml`. Should be `1g`. |

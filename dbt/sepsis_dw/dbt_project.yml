@@ -1,0 +1,42 @@
+name: sepsis_dw
+version: "0.1.0"
+config-version: 2
+profile: sepsis_dw
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Overridden by the sepsis CLI from .env (SPLIT_SEED, SPLIT_VERSION).
+  split_seed: "42"
+  split_version: "1"
+  # Set only by the truncation leakage test (docs/PLAN.md, Stage 4).
+  leakage_cutoff: null
+
+# Schema names are used verbatim (see macros/generate_schema_name.sql).
+models:
+  sepsis_dw:
+    staging:
+      +schema: staging
+      +materialized: view
+    silver:
+      +schema: silver
+      +materialized: table
+    gold:
+      +schema: gold
+      +materialized: table
+      +grants:
+        select: ["dm_reader"]
+    marts:
+      +schema: mart
+      +materialized: table
+      +grants:
+        select: ["dm_reader"]
+
+seeds:
+  sepsis_dw:
+    +schema: silver

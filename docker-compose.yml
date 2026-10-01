@@ -1,0 +1,44 @@
+name: sepsis-dw
+
+services:
+  warehouse:
+    image: timescale/timescaledb:2.30.2-pg18
+    container_name: sepsis-warehouse
+    restart: unless-stopped
+    # The container default /dev/shm (64 MB) breaks parallel queries.
+    shm_size: 1g
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sepsis_dw}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_writer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      DM_READER_PASSWORD: ${DM_READER_PASSWORD:?set DM_READER_PASSWORD in .env}
+      # Settings are set explicitly below; skip timescaledb-tune for reproducibility.
+      NO_TS_TUNE: "true"
+      TIMESCALEDB_TELEMETRY: "off"
+    command:
+      - postgres
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - work_mem=64MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_parallel_workers_per_gather=2
+      - -c
+      - timescaledb.telemetry_level=off
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      # Mounted file by file: the image ships its own init scripts (000_, 001_) in this folder.
+      - ./sql/init/10_schemas.sql:/docker-entrypoint-initdb.d/10_schemas.sql:ro
+      - ./sql/init/20_roles.sh:/docker-entrypoint-initdb.d/20_roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

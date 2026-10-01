@@ -6,7 +6,7 @@ The project has two parts:
 - **Data Warehouses project (this repository's focus):** extract the raw data, clean and transform it, and load it into a PostgreSQL warehouse with a star schema, data-quality checks and analytical (OLAP) views.
 - **Data Mining project (later):** uses the warehouse's **leakage-safe, ML-ready feature mart** to build models for **early sepsis prediction**.
 
-> **Status:** planning. See [`docs/PLAN.md`](docs/PLAN.md) for the detailed implementation plan and [`docs/SETUP.md`](docs/SETUP.md) for environment setup.
+> **Status:** Stage 0 (foundation) complete; Stage 1 (extract) next. See [`docs/PLAN.md`](docs/PLAN.md) for the detailed implementation plan and [`docs/SETUP.md`](docs/SETUP.md) for environment setup.
 
 ---
 
