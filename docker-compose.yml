@@ -18,11 +18,11 @@ services:
     command:
       - postgres
       - -c
-      - shared_buffers=1GB
+      - shared_buffers=512MB
       - -c
-      - work_mem=64MB
+      - work_mem=32MB
       - -c
-      - maintenance_work_mem=512MB
+      - maintenance_work_mem=256MB
       - -c
       - max_parallel_workers_per_gather=2
       - -c

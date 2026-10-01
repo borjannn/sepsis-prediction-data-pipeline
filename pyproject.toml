@@ -34,9 +34,10 @@ packages = ["src/sepsis_pipeline"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not e2e'"
 markers = [
     "db: needs the warehouse database running (docker compose up -d)",
+    "e2e: slow end-to-end pipeline test on a sample database (run with: pytest -m e2e)",
 ]
 
 [tool.ruff]
@@ -46,3 +47,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer declares CLI options as call defaults by design.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]

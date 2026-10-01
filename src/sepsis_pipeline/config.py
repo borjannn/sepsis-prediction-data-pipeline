@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from psycopg.conninfo import make_conninfo
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # src/sepsis_pipeline/config.py -> project root (the package is installed in editable mode).
@@ -16,6 +16,7 @@ class Settings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     postgres_host: str = "localhost"
@@ -35,6 +36,11 @@ class Settings(BaseSettings):
 
     dbt_project_dir: Path = Path("dbt/sepsis_dw")
 
+    # Optional overrides (default: <data_dir>/raw and <data_dir>/bronze). The end-to-end test
+    # reads the real raw files but writes bronze to a temporary folder.
+    raw_dir_override: Path | None = Field(default=None, alias="RAW_DIR")
+    bronze_dir_override: Path | None = Field(default=None, alias="BRONZE_DIR")
+
     @field_validator("data_dir", "export_dir", "dbt_project_dir")
     @classmethod
     def _resolve_against_project_root(cls, path: Path) -> Path:
@@ -42,11 +48,11 @@ class Settings(BaseSettings):
 
     @property
     def raw_dir(self) -> Path:
-        return self.data_dir / "raw"
+        return self.raw_dir_override or self.data_dir / "raw"
 
     @property
     def bronze_dir(self) -> Path:
-        return self.data_dir / "bronze"
+        return self.bronze_dir_override or self.data_dir / "bronze"
 
     @property
     def conninfo(self) -> str:

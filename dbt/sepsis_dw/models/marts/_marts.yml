@@ -1,0 +1,70 @@
+version: 2
+
+sources:
+  - name: mart
+    description: Mart tables written by Python stages rather than dbt.
+    schema: mart
+    tables:
+      - name: train_reference_stats
+        description: >
+          Written by `sepsis export` (Polars, from the train Parquet): per (split_scheme,
+          feature) mean, std, median, p01, p99, missing fraction over the scheme's training
+          patients only (split_scheme_membership); patient-hour weighted. Computed outside SQL
+          because ~200 concurrent percentile sorts per GROUP BY exhausted laptop memory.
+
+exposures:
+  - name: data_mining_sepsis_prediction
+    label: Data Mining project - early sepsis prediction
+    type: ml
+    maturity: medium
+    description: >
+      The team-of-3 Data Mining project trains early sepsis prediction models on the Parquet
+      export of ml_features_patient_hour (`sepsis export`). Only feat_* columns are model
+      inputs; label_* are targets; scaling/imputation uses train_reference_stats.
+    owner:
+      name: Data Mining team
+    depends_on:
+      - ref('ml_features_patient_hour')
+      - source('mart', 'train_reference_stats')
+      - ref('utility_normalisers')
+
+models:
+  - name: ml_features_patient_hour
+    description: >
+      ML-ready, leakage-safe feature mart (view). Column groups: keys (patient_id, iculos),
+      meta_* (hospital, unit, splits; not features by default), feat_* (causal features),
+      label_* (targets; never inputs). No outcome_* columns.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [patient_id, iculos]
+    columns:
+      - name: meta_split_random
+        data_tests: [not_null]
+      - name: label_sepsis
+        data_tests: [not_null]
+
+  - name: split_scheme_membership
+    description: Training patients of each split scheme (random, hospital_holdout, cv_fold_1..5).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [patient_id, split_scheme]
+
+  - name: utility_normalisers
+    description: >
+      Best / inaction / all-positive utility totals per evaluation split, for the normalised
+      challenge score (observed - inaction) / (best - inaction).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [split_scheme, split]
+
+  - name: mv_sepsis_rate_cube
+    description: "OLAP CUBE: sepsis rate and median LOS by hospital x ICU unit x age band x gender, with all subtotals."
+  - name: mv_vitals_by_stay_phase
+    description: "OLAP ROLLUP: average vitals by stay phase and day of stay, septic vs non-septic."
+  - name: mv_measurement_frequency
+    description: "OLAP GROUPING SETS: measurement volume, per-patient-day rates and data-quality shares by hospital / category / variable."
+  - name: mv_pre_onset_trajectory
+    description: "Septic patients' vitals/labs by hour relative to onset vs a non-septic baseline matched on hours of stay."

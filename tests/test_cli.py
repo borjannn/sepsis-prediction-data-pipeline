@@ -23,8 +23,9 @@ def test_help_lists_all_stages():
         assert command in result.output
 
 
-def test_unimplemented_stage_exits_with_code_2():
-    result = runner.invoke(app, ["run-all"])
+def test_run_all_offers_sample_and_timescale_options():
+    result = runner.invoke(app, ["run-all", "--help"])
 
-    assert result.exit_code == 2
-    assert "Stage 9" in result.output
+    assert result.exit_code == 0
+    assert "--sample" in result.output
+    assert "--with-timescale" in result.output
