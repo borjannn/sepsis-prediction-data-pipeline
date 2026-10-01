@@ -4,10 +4,20 @@ from dataclasses import dataclass
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeRemainingColumn
 from rich.table import Table
 
+from sepsis_pipeline.audit import etl_run
+from sepsis_pipeline.bronze.stage import run_load_bronze
 from sepsis_pipeline.config import PROJECT_ROOT, get_settings
 from sepsis_pipeline.db import connect
+from sepsis_pipeline.extract.stage import run_extract
+from sepsis_pipeline.profiling.profile import (
+    build_profile,
+    load_inputs,
+    render_markdown,
+    write_dq_results,
+)
 from sepsis_pipeline.transform.dbt_runner import run_dbt
 
 app = typer.Typer(
@@ -167,21 +177,99 @@ def _not_implemented(stage: int) -> None:
 
 
 @app.command()
-def extract() -> None:
+def extract(
+    workers: int | None = typer.Option(None, help="Parallel downloads (default: EXTRACT_WORKERS)."),
+) -> None:
     """Download and verify the ~40k patient files from PhysioNet (Stage 1)."""
-    _not_implemented(1)
+    settings = get_settings()
+    if workers is not None:
+        settings = settings.model_copy(update={"extract_workers": workers})
+
+    with (
+        etl_run("extract", params={"workers": settings.extract_workers}) as run,
+        Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress,
+    ):
+        task = progress.add_task("Listing PhysioNet S3 mirror", total=None)
+
+        def on_listed(remote):
+            progress.update(task, description="Verifying / downloading", total=len(remote))
+
+        summary = run_extract(
+            settings, on_listed=on_listed, on_result=lambda _: progress.advance(task)
+        )
+        run.rows_in = summary.remote_count
+        run.rows_out = summary.remote_count - len(summary.failures)
+        if not summary.ok:
+            raise RuntimeError(f"{len(summary.failures)} files failed to download")
+
+    counts = ", ".join(f"{k}: {v}" for k, v in sorted(summary.status_counts.items()))
+    sets = ", ".join(f"{k}: {v}" for k, v in summary.per_set.items())
+    console.print(
+        f"[green]Extract complete[/green]: {summary.remote_count} files ({sets}); {counts}"
+    )
+    for warning in summary.warnings:
+        console.print(f"[yellow]warning[/yellow]: {warning}")
+
+
+SAMPLE_HELP = "Load only a stratified sample of N patients (dev loop). Default: all patients."
 
 
 @app.command("load-bronze")
-def load_bronze() -> None:
-    """Parse, validate and load the raw files into raw.* (Stage 2)."""
-    _not_implemented(2)
+def load_bronze(
+    sample: int | None = typer.Option(None, "--sample", help=SAMPLE_HELP),
+) -> None:
+    """Parse, validate and load the raw files into raw.* and bronze Parquet (Stage 2)."""
+    settings = get_settings()
+    with etl_run("load_bronze", params={"sample": sample}) as run, console.status("Loading bronze"):
+        summary = run_load_bronze(settings, sample=sample)
+        run.rows_in, run.rows_out = summary.files_in, summary.rows
+
+    scope = (
+        f"sample of {summary.patients} patients"
+        if summary.sampled
+        else f"{summary.patients} patients"
+    )
+    console.print(f"[green]Bronze loaded[/green]: {summary.rows:,} patient-hours, {scope}")
+    if summary.quarantined.height:
+        console.print(
+            f"[yellow]{summary.quarantined.height} files quarantined[/yellow] (raw.quarantine):"
+        )
+        for row in summary.quarantined.head(10).iter_rows(named=True):
+            console.print(f"  {row['source_file']}: {row['reason']}")
+    else:
+        console.print("No files quarantined.")
 
 
 @app.command()
 def profile() -> None:
-    """Profile the bronze data and write docs/data_profile.md (Stage 2)."""
-    _not_implemented(2)
+    """Build staging + patient split, then profile bronze into docs/data_profile.md (Stage 2)."""
+    settings = get_settings()
+    with etl_run("profile") as run:
+        console.print("Building staging view and patient split (dbt)...")
+        result = run_dbt(["build", "--select", "stg_patient_hour", "patient_split"], settings)
+        if result.returncode != 0:
+            raise RuntimeError("dbt build of stg_patient_hour/patient_split failed")
+
+        with console.status("Profiling bronze"), connect(settings) as conn:
+            frame, split, quarantined = load_inputs(conn, settings.bronze_dir)
+            prof = build_profile(frame, split, quarantined)
+            write_dq_results(conn, run.run_id, prof)
+        run.rows_in = prof.overview["patient_hours"]
+
+    out = PROJECT_ROOT / "docs" / "data_profile.md"
+    out.write_text(render_markdown(prof), encoding="utf-8")
+    console.print(f"[green]Profile written[/green]: {out}")
+    for check in prof.checks:
+        mark = "[green]holds[/green]" if check.holds else "[yellow]violated[/yellow]"
+        console.print(f"  {check.name}: {mark} ({check.observed})")
+    for note in prof.notes:
+        console.print(f"[yellow]note[/yellow]: {note}")
 
 
 @app.command()

@@ -1,0 +1,50 @@
+version: 2
+
+seeds:
+  - name: variable_catalog
+    description: >
+      The 34 clinical variables with their units and clinical constants. These are fixed
+      clinical references, not values fitted to the data (leakage contract, docs/PLAN.md §4.2);
+      they were only sanity-checked against the train-only profile (docs/data_profile.md),
+      p0.1/p99.9, so plausible tails are not cut.
+
+      - valid_min / valid_max: physiological plausibility limits. Values outside are flagged
+        (int_measurement_long.is_out_of_range) and nulled in the wide clean table. They are
+        deliberately wide (e.g. HR 20-300, Temp 25-45 deg C, pH 6.5-8.0, lactate 0.1-30):
+        survivable extremes in an ICU are kept; only impossible or unit-error values go.
+      - normal_low / normal_high: standard adult reference intervals (e.g. HR 60-100,
+        MAP 70-105, WBC 4-12 x10^3/uL, platelets 150-400 x10^3/uL, lactate 0.5-2.0 mmol/L),
+        used for is_abnormal and for the SIRS/SOFA feature thresholds.
+      - locf_max_hours: how long a last observation may be carried forward. Vitals are charted
+        roughly hourly (cap 6 h; temperature every few hours, cap 12 h); routine labs daily
+        (cap 24 h for blood gases, glucose and potassium, which are repeated more often;
+        48 h for other chemistry and hematology); rarely ordered labs (troponin, fibrinogen)
+        72 h.
+      - Units follow the PhysioNet data description. FiO2 is a fraction after harmonisation
+        (percent values are rescaled in int_measurement_long). Lactate is listed as mg/dL on
+        the PhysioNet page, but its observed distribution (train median 1.8, max 31) matches mmol/L, so the
+        mmol/L reference interval is used (docs/data_profile.md). Magnesium is listed as
+        mmol/dL but its distribution (median 2.0) matches mg/dL. Calcium values below 2 are
+        ionized calcium (mmol/L) and are flagged as a unit mismatch, not checked against these
+        total-calcium (mg/dL) ranges.
+    config:
+      column_types:
+        valid_min: double precision
+        valid_max: double precision
+        normal_low: double precision
+        normal_high: double precision
+        locf_max_hours: integer
+    columns:
+      - name: variable
+        data_tests: [unique, not_null]
+      - name: category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['vital', 'lab']
+
+  - name: icu_unit
+    description: ICU unit codes derived from the Unit1 (MICU) / Unit2 (SICU) flags.
+    columns:
+      - name: unit_code
+        data_tests: [unique, not_null]

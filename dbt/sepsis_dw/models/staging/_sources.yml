@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Bronze layer, loaded by `sepsis load-bronze` (Python). Exact copy of the source files plus lineage columns.
+    schema: raw
+    tables:
+      - name: patient_hour
+        description: One row per line of a patient .psv file. Original column names; NaN stored as NULL.
+      - name: file_manifest
+        description: One row per downloaded patient file (written by `sepsis extract`).
+      - name: quarantine
+        description: Files rejected by bronze validation, with the reason. Excluded from patient_hour.

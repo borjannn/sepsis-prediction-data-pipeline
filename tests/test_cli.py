@@ -24,7 +24,7 @@ def test_help_lists_all_stages():
 
 
 def test_unimplemented_stage_exits_with_code_2():
-    result = runner.invoke(app, ["extract"])
+    result = runner.invoke(app, ["run-all"])
 
     assert result.exit_code == 2
-    assert "Stage 1" in result.output
+    assert "Stage 9" in result.output

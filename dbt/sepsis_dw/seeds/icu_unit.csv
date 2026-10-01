@@ -1,0 +1,5 @@
+unit_key,unit_code,description
+1,MICU,Medical ICU (Unit1 = 1)
+2,SICU,Surgical ICU (Unit2 = 1)
+3,BOTH,Both unit flags set
+0,UNKNOWN,Unit not recorded (Unit1 and Unit2 missing)

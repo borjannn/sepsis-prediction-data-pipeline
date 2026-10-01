@@ -1,0 +1,35 @@
+variable,source_column,display_name,category,subcategory,unit,valid_min,valid_max,normal_low,normal_high,locf_max_hours
+hr,HR,Heart rate,vital,hemodynamic,beats/min,20,300,60,100,6
+o2sat,O2Sat,Pulse oximetry (SpO2),vital,respiratory,%,40,100,95,100,6
+temp,Temp,Temperature,vital,temperature,deg C,25,45,36,38,12
+sbp,SBP,Systolic blood pressure,vital,hemodynamic,mmHg,40,300,90,140,6
+map,MAP,Mean arterial pressure,vital,hemodynamic,mmHg,20,250,70,105,6
+dbp,DBP,Diastolic blood pressure,vital,hemodynamic,mmHg,10,200,60,90,6
+resp,Resp,Respiration rate,vital,respiratory,breaths/min,1,80,12,20,6
+etco2,EtCO2,End-tidal carbon dioxide,vital,respiratory,mmHg,5,100,35,45,6
+base_excess,BaseExcess,Base excess,lab,blood gas,mmol/L,-40,40,-2,2,24
+hco3,HCO3,Bicarbonate,lab,blood gas,mmol/L,3,60,22,28,24
+fio2,FiO2,Fraction of inspired oxygen,lab,blood gas,fraction,0.2,1,0.21,0.4,24
+ph,pH,pH,lab,blood gas,pH,6.5,8,7.35,7.45,24
+paco2,PaCO2,Partial pressure of CO2 (arterial),lab,blood gas,mmHg,5,150,35,45,24
+sao2,SaO2,Oxygen saturation (arterial),lab,blood gas,%,30,100,95,100,24
+ast,AST,Aspartate transaminase,lab,chemistry,IU/L,1,20000,10,40,48
+bun,BUN,Blood urea nitrogen,lab,chemistry,mg/dL,1,300,7,20,48
+alkalinephos,Alkalinephos,Alkaline phosphatase,lab,chemistry,IU/L,5,5000,44,147,48
+calcium,Calcium,Calcium,lab,chemistry,mg/dL,2,20,8.5,10.5,48
+chloride,Chloride,Chloride,lab,chemistry,mmol/L,50,160,96,106,48
+creatinine,Creatinine,Creatinine,lab,chemistry,mg/dL,0.1,30,0.6,1.2,48
+bilirubin_direct,Bilirubin_direct,Bilirubin (direct),lab,chemistry,mg/dL,0,40,0,0.3,48
+glucose,Glucose,Serum glucose,lab,chemistry,mg/dL,10,1500,70,140,24
+lactate,Lactate,Lactic acid,lab,blood gas,mmol/L,0.1,35,0.5,2,24
+magnesium,Magnesium,Magnesium,lab,chemistry,mg/dL,0.3,10,1.7,2.2,48
+phosphate,Phosphate,Phosphate,lab,chemistry,mg/dL,0.3,20,2.5,4.5,48
+potassium,Potassium,Potassium,lab,chemistry,mmol/L,1,12,3.5,5,24
+bilirubin_total,Bilirubin_total,Bilirubin (total),lab,chemistry,mg/dL,0.1,60,0.1,1.2,48
+troponin_i,TroponinI,Troponin I,lab,cardiac,ng/mL,0,500,0,0.04,72
+hct,Hct,Hematocrit,lab,hematology,%,5,75,36,50,48
+hgb,Hgb,Hemoglobin,lab,hematology,g/dL,2,25,12,17,48
+ptt,PTT,Partial thromboplastin time,lab,coagulation,seconds,10,250,25,35,48
+wbc,WBC,Leukocyte count,lab,hematology,10^3/uL,0.1,300,4,12,48
+fibrinogen,Fibrinogen,Fibrinogen,lab,coagulation,mg/dL,20,2000,200,400,72
+platelets,Platelets,Platelet count,lab,hematology,10^3/uL,1,2000,150,400,48

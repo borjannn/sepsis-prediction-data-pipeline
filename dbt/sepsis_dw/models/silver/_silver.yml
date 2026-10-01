@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: patient_split
+    description: >
+      Deterministic, stratified (hospital x septic), patient-level split. Built before
+      profiling; reads raw directly so it never changes with test vars. Contains is_sepsis for
+      stratification only. Never a feature.
+    columns:
+      - name: patient_id
+        data_tests: [unique, not_null]
+      - name: split_random
+        description: 70/15/15 train/validation/test, stratified by hospital and sepsis status.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['train', 'validation', 'test']
+      - name: cv_fold
+        description: Patient-level CV fold 1-5 for train patients (NULL otherwise).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: split_hospital_holdout
+        description: Hospital A split 70/30 into train/validation; hospital B is the test set.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['train', 'validation', 'test']
+
+  - name: int_measurement_long
+    description: >
+      One row per observed clinical value (view). Unit-harmonised, flagged against the seed's
+      plausibility (is_out_of_range) and normal (is_abnormal) ranges. Nothing is removed.
+    columns:
+      - name: variable
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('variable_catalog')
+                field: variable
+      - name: value
+        description: Harmonised value (FiO2 percentages rescaled to fractions).
+        data_tests: [not_null]
+
+  - name: int_patient_hour_clean
+    description: >
+      Wide clean patient-hour table: every hour of every patient, each variable holding its
+      in-range value or NULL. Base of all feature models; must never contain label or outcome
+      columns (leakage contract, docs/PLAN.md §4.2).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [patient_id, iculos]
+    columns:
+      - name: unit_code
+        description: ICU unit from Unit1/Unit2 (MICU, SICU, BOTH, UNKNOWN).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['MICU', 'SICU', 'BOTH', 'UNKNOWN']
+      - name: static_attr_conflict
+        description: True if any static attribute varies within the patient (first row wins).
+
+  - name: int_dq_rejections
+    description: Every out-of-range observation with the rule it broke (data-quality report).

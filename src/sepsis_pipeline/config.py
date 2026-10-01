@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     export_dir: Path = Path("exports")
     extract_workers: int = 16
+    physionet_base_url: str = "https://physionet-open.s3.amazonaws.com"
+    physionet_prefix: str = "challenge-2019/1.0.0/training/"
     split_seed: int = 42
     split_version: int = 1
     sample_size: int = 400
@@ -37,6 +39,14 @@ class Settings(BaseSettings):
     @classmethod
     def _resolve_against_project_root(cls, path: Path) -> Path:
         return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
+
+    @property
+    def raw_dir(self) -> Path:
+        return self.data_dir / "raw"
+
+    @property
+    def bronze_dir(self) -> Path:
+        return self.data_dir / "bronze"
 
     @property
     def conninfo(self) -> str:
@@ -58,6 +68,8 @@ class Settings(BaseSettings):
             "POSTGRES_USER": self.postgres_user,
             "POSTGRES_PASSWORD": self.postgres_password.get_secret_value(),
             "DBT_PROFILES_DIR": str(self.dbt_project_dir),
+            "SPLIT_SEED": str(self.split_seed),
+            "SPLIT_VERSION": str(self.split_version),
         }
 
 

@@ -56,6 +56,25 @@
 - `Unit1`/`Unit2` are MICU/SICU one-hot flags, or both NULL. Check whether both are ever 1.
 - Minimum age (to define the age bands).
 
+### 2.4 Profiling outcomes (resolved 2026-10-01, see `docs/data_profile.md`)
+
+| Item | Result | Handling |
+|---|---|---|
+| `(patient_id, ICULOS)` unique, contiguous | Confirmed: 0 duplicates, 0 gaps | Uniqueness tested as an error; contiguity as a warning |
+| `ICULOS` starts at 1 | **Violated** for 8,793 patients (21.8%) | `row_idx` (0-based) is used for the challenge utility, `iculos` for time-in-stay. Because hours are contiguous, `row_idx = iculos − min(iculos)` |
+| Static attributes constant | Confirmed for all five | First row wins; `static_attr_conflict` stays as a guard |
+| Label monotonic | Confirmed | Tested |
+| Stays ≥ 8 rows, ≤ 336 h | Confirmed | — |
+| FiO2 percent values | Only 16 values in (1, 100] (train), plus values in (0, 0.2), ≤ 0 and up to 4,000 | Rescale (1, 100] to a fraction; everything else outside 0.2–1.0 is flagged out of range |
+| **Calcium unit mix** | ~11% of calcium values are < 2: ionized calcium (mmol/L) recorded under total calcium (mg/dL) | `is_unit_mismatch` flag: kept in long/`fact_measurement`, excluded from the clean wide table |
+| Lactate / magnesium units | Distributions match mmol/L and mg/dL respectively (the PhysioNet page lists mg/dL and mmol/dL) | Seed uses the observed units; lactate `valid_max` widened to 35 (max observed 31) |
+| Temp always °C | Yes (median 37). A few implausible values (< 25 or > 45) | Flagged out of range |
+| Unit1/Unit2 | MICU or SICU one-hot, or both NULL (UNKNOWN: 47% at A, 30% at B); never both | `unit_code` MICU / SICU / UNKNOWN (BOTH kept in the seed but unused) |
+| Minimum age | 14; 22 patients < 18; 392 patients top-coded at 100 | Age band `<18` added |
+| Hospital-dependent missingness | EtCO2 never recorded at A; BaseExcess/HCO3/Chloride ~99.8% missing at B; DBP 48% missing at A vs 14% at B | Flagged as **shortcut risk** in the data dictionary (Stage 7) |
+| Sepsis prevalence | 7.27% of patients (A 8.80%, B 5.71%); 426 positive from row 0; 15 with `t_sepsis` after the record ends | `onset_left_censored` / `onset_after_record_end` flags |
+| Rows over the stay | 57% of rows in hours 1–24, 91% in hours 1–48 | Expect chunk skew in Stage 8 |
+
 ---
 
 ## 3. Architecture

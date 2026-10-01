@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: stg_patient_hour
+    description: >
+      1:1 with raw.patient_hour. snake_case names, typed columns, and row_idx (0-based row index
+      per patient, used by the official challenge scoring). Honours the leakage_cutoff test var.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [patient_id, iculos]
+    columns:
+      - name: patient_id
+        description: Natural key; the source file name (e.g. p000001).
+        data_tests: [not_null]
+      - name: source_set
+        description: Hospital the file comes from (A = training_setA, B = training_setB).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A', 'B']
+      - name: iculos
+        description: Hours since ICU admission (ICULOS). Grain key together with patient_id.
+        data_tests: [not_null]
+      - name: row_idx
+        description: 0-based row index within the patient, ordered by iculos.
+        data_tests: [not_null]
+      - name: sepsis_label
+        description: Official target. 1 for hours t >= t_sepsis - 6 of septic patients, else 0.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: gender
+        description: 0 = female, 1 = male.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: age
+        description: Years; 100 means 90 or older (top-coded by PhysioNet).

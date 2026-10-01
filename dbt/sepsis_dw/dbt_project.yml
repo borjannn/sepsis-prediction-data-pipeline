@@ -11,9 +11,9 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 vars:
-  # Overridden by the sepsis CLI from .env (SPLIT_SEED, SPLIT_VERSION).
-  split_seed: "42"
-  split_version: "1"
+  # From .env via the sepsis CLI (SPLIT_SEED, SPLIT_VERSION).
+  split_seed: "{{ env_var('SPLIT_SEED', '42') }}"
+  split_version: "{{ env_var('SPLIT_VERSION', '1') }}"
   # Set only by the truncation leakage test (docs/PLAN.md, Stage 4).
   leakage_cutoff: null
 
