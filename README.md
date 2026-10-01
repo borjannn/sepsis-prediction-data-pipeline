@@ -6,7 +6,30 @@ The project has two parts:
 - **Data Warehouses project (this repository's focus):** extract the raw data, clean and transform it, and load it into a PostgreSQL warehouse with a star schema, data-quality checks and analytical (OLAP) views.
 - **Data Mining project (later):** uses the warehouse's **leakage-safe, ML-ready feature mart** to build models for **early sepsis prediction**.
 
-> **Status:** Stage 0 (foundation) complete; Stage 1 (extract) next. See [`docs/PLAN.md`](docs/PLAN.md) for the detailed implementation plan and [`docs/SETUP.md`](docs/SETUP.md) for environment setup.
+> **Status:** all stages implemented and tested on the full dataset. See [`docs/PLAN.md`](docs/PLAN.md) (plan and implementation log), [`docs/SETUP.md`](docs/SETUP.md) (setup), [`docs/data_profile.md`](docs/data_profile.md) (data profile) and [`docs/timescale_benchmark.md`](docs/timescale_benchmark.md) (TimescaleDB benchmark).
+
+## Quick start
+
+```powershell
+uv sync --extra dev                 # Python environment
+Copy-Item .env.example .env         # then set the two passwords
+docker compose up -d                # PostgreSQL 18 + TimescaleDB
+python -m sepsis_pipeline doctor    # environment check
+python -m sepsis_pipeline run-all   # extract -> bronze -> profile -> dbt build -> export
+```
+
+(`python -m sepsis_pipeline` and the `sepsis` command are the same CLI.)
+
+## What it produces (full dataset)
+
+| Layer | Contents |
+|---|---|
+| Bronze | 40,336 patient files (MD5-verified), 1,552,210 patient-hours, 0 quarantined |
+| Silver | 10.5M validated observations; clean, imputed (capped LOCF) and feature tables; labels and challenge utility |
+| Gold | Star schema: 3 facts (patient-hour, measurement, ICU stay), 5 dimensions, PK/FK constraints |
+| Marts | Leakage-safe ML feature view (262 `feat_` columns), split membership, utility normalisers, 4 OLAP materialized views |
+| Export | Versioned Parquet per split (train 1,083,869 / validation 233,663 / test 234,678 rows), train-only reference statistics, data dictionary, manifest |
+
 
 ---
 

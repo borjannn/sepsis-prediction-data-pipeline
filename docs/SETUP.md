@@ -2,7 +2,7 @@
 
 This guide sets up a development environment for the sepsis data warehouse pipeline. It is written for **Windows 11 + PowerShell** (the primary dev machine). The macOS/Linux equivalents are given where they differ.
 
-> **Note:** Stage 0 (foundation) is implemented, so sections 1–7 work today. Commands marked *(Stage N)* become available once that stage of [`PLAN.md`](PLAN.md) is implemented; until then they print "Not implemented yet".
+> All stages are implemented. A full run from an empty database takes roughly 25 minutes on a laptop (most of it the first download).
 
 ---
 
@@ -35,7 +35,7 @@ cd sepsis-dw
 ## 3. Python environment
 
 ```powershell
-uv sync --extra dev               # creates/updates .venv from uv.lock: package + dbt + dev tools  (Stage 0)
+uv sync --extra dev               # creates/updates .venv from uv.lock: package + dbt + dev tools
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -92,7 +92,7 @@ processors=4
 Then run `wsl --shutdown` and restart Docker Desktop. The compose file sets `shm_size: 1g` for the container, because Postgres parallel queries fail with the default 64 MB `/dev/shm`.
 
 ```powershell
-docker compose up -d                       # starts timescale/timescaledb:2.30.2-pg18   (Stage 0)
+docker compose up -d                       # starts timescale/timescaledb:2.30.2-pg18
 docker compose ps                          # STATUS should be "healthy"
 ```
 
@@ -143,22 +143,32 @@ It checks: `.env` present, DB connection, TimescaleDB extension, layer schemas, 
 Run the stages one at a time:
 
 ```powershell
-sepsis extract                 # download + verify ~40k .psv files          (Stage 1)
-sepsis load-bronze             # parse, validate, load raw.*                (Stage 2)
-sepsis profile                 # writes docs/data_profile.md                (Stage 2)
-sepsis transform               # dbt build: staging → silver → gold → marts (Stages 3–6)
-sepsis export                  # Parquet + data dictionary + manifest       (Stage 7)
-sepsis timescale               # TimescaleDB add-on + benchmark             (Stage 8)
+sepsis extract                 # download + verify ~40k .psv files
+sepsis load-bronze             # parse, validate, load raw.*
+sepsis profile                 # writes docs/data_profile.md
+sepsis transform               # dbt build: staging → silver → gold → marts
+sepsis export                  # Parquet + data dictionary + manifest
+sepsis timescale               # TimescaleDB add-on + benchmark (full rebuild, ~4 min)
+sepsis timescale --resume      # continue an interrupted run from the current ts.* state
 ```
 
 Or run everything:
 
 ```powershell
-sepsis run-all                 # stages 1–7                                 (Stage 9)
+sepsis run-all                 # extract → bronze → profile → dbt build → export
 sepsis run-all --with-timescale
 ```
 
-**Fast dev loop:** add `--sample 400` to work on a 400-patient subset (≈ 28 septic patients), stratified by hospital and sepsis status.
+**Fast dev loop:** `sepsis load-bronze --sample 400` (or `sepsis run-all --sample 400`) loads a 400-patient subset (≈ 28 septic patients) stratified by hospital and sepsis status, plus the 9 fixed leakage-test patients. In sample mode `run-all` writes the profile to `data/data_profile_sample.md`, so the full-data `docs/data_profile.md` is never overwritten. Run `sepsis load-bronze` (no `--sample`) to go back to the full data.
+
+**Outputs to know:**
+
+| Where | What |
+|---|---|
+| `docs/data_profile.md` | Profile and assumption checks (from `sepsis profile`) |
+| `docs/timescale_benchmark.md` | TimescaleDB benchmark (from `sepsis timescale`) |
+| `exports/v<split_version>_<date>/` | The Data Mining package (from `sepsis export`) |
+| `audit.etl_run`, `audit.dbt_model_run`, `audit.dq_results` | Run log, per-dbt-node results, data-quality metrics |
 
 **dbt directly** (for model development):
 
@@ -174,8 +184,10 @@ sepsis dbt docs serve                         # lineage graph at http://localhos
 ## 9. Running tests
 
 ```powershell
-python -m pytest               # unit tests; tests marked `db` are skipped if the warehouse isn't running
+python -m pytest               # unit + DB tests (DB tests skip if the warehouse isn't running)
 python -m pytest -m "not db"   # unit tests only
+python -m pytest -m e2e        # end-to-end on a sample in a throwaway database `sepsis_test`,
+                               # including the truncation leakage test (~5 min)
 sepsis dbt test                # data tests against the warehouse
 ```
 
@@ -200,6 +212,7 @@ You do **not** need to run the warehouse to start working:
    ```python
    import polars as pl
    train = pl.read_parquet("exports/v1_YYYYMMDD/ml_features_patient_hour/meta_split_random=train/")
+   everything = pl.read_parquet("exports/v1_YYYYMMDD/ml_features_patient_hour/")  # all splits
    ```
    **Rules:**
    - Only `feat_*` columns are model inputs.
@@ -223,5 +236,6 @@ You do **not** need to run the warehouse to start working:
 | A dependency fails to install on Python 3.14 | Create a 3.13 venv (`py -3.13 -m venv .venv`). Report which package failed, so the plan's risk table can be updated. |
 | Slow dbt models / Postgres OOM-killed | Raise the WSL 2 memory in `.wslconfig`. Lower `work_mem` in `docker-compose.yml`. Develop with `--sample`. |
 | `could not resize shared memory segment` | `shm_size` is missing or too small in `docker-compose.yml`. Should be `1g`. |
+| Host runs out of memory during `sepsis timescale` | The WSL VM keeps page cache after large writes. Close other heavy apps or cap WSL memory (§5), then `sepsis timescale --resume`. |
 | Extract stalls / HTTP 503 | The download retries automatically and is resumable, so just re-run `sepsis extract`. Lower `EXTRACT_WORKERS` if it persists. |
 | Shell scripts in `sql/init` fail with `\r` errors | CRLF line endings. `.gitattributes` enforces `eol=lf` for `*.sh`/`*.sql`; re-checkout or convert the file. |

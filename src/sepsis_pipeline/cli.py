@@ -301,11 +301,18 @@ def export() -> None:
 
 
 @app.command()
-def timescale() -> None:
+def timescale(
+    resume: bool = typer.Option(
+        False, help="Continue from the current ts.* state instead of rebuilding from scratch."
+    ),
+) -> None:
     """Run the TimescaleDB add-on and its benchmark into docs/timescale_benchmark.md (Stage 8)."""
     settings = get_settings()
-    with etl_run("timescale") as run, console.status("Running TimescaleDB add-on and benchmark"):
-        report = run_timescale(settings)
+    with (
+        etl_run("timescale", params={"resume": resume}) as run,
+        console.status("Running TimescaleDB add-on and benchmark"),
+    ):
+        report = run_timescale(settings, resume=resume)
         run.rows_out = sum(n for _, n in report.chunks)
     path = write_report(report)
     console.print(f"[green]Benchmark written[/green]: {path}")
@@ -337,7 +344,7 @@ def run_all(
         ("export", export),
     ]
     if with_timescale:
-        steps.append(("timescale", timescale))
+        steps.append(("timescale", lambda: timescale(resume=False)))
     for name, step in steps:
         console.rule(f"[bold]{name}")
         step()

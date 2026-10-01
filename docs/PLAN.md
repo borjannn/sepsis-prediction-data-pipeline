@@ -3,7 +3,7 @@
 **Project:** ETL pipeline and data warehouse for the PhysioNet/CinC Challenge 2019 sepsis dataset
 **Scope of this document:** the Data Warehouses (DW) project only. The Data Mining (DM) project consumes this pipeline's outputs and is out of scope here, except for the hand-off contract (Stage 7).
 **Owner:** 1 person (DW). Consumers: a team of 3 (DM), working on **early sepsis prediction**.
-**Status:** Revision 3 (the independent reviewer agrees it is ready to implement). **M0 done** (2026-10-01): Stage 0 implemented and `sepsis doctor` all green. See [§9 Review log](#9-review-log).
+**Status:** Implemented (2026-10-01): all stages built and tested on the full dataset. Plan revision 3 (agreed with the independent reviewer); implementation deviations are listed in [§10 Implementation log](#10-implementation-log).
 
 ---
 
@@ -745,3 +745,32 @@ Develop on `--sample 400` during M2–M4. Switch to the full data at each milest
 
 **Not adopted, or adopted differently:**
 - *"A dbt test that no `feat_` column's lineage reaches label models"*: dbt core has no column-level lineage. It's implemented as a model-level lineage test on `manifest.json`, plus an `information_schema` check that `sepsis_label` is absent from the feature base table.
+
+---
+
+## 10. Implementation log
+
+What changed while building, and why. Measurements are from the full dataset on the
+development laptop (14 GB RAM, Windows 11, Docker/WSL 2).
+
+| Area | Plan | As built | Reason |
+|---|---|---|---|
+| Bronze load | One lazy scan over all files | Streaming batches of 2,000 files, each validated, written as a Parquet part and COPYed inside one transaction | One scan over 40k files exhausted memory (and crashed the IDE). Batched: 59 s, 0.9 GB peak |
+| Profiler | Load the bronze frame | Lazy, column-pruned Polars scans | 0.6 GB peak |
+| Calcium | Range validation only | `is_unit_mismatch` flag for Calcium < 2 (ionized calcium in mmol/L, ~11% of values), excluded from the clean table | Found by the profile; would otherwise fail the out-of-range test (§2.4) |
+| Feature table | Full wide table | `int_patient_hour_features` holds keys + derived columns only; the mart joins it with `int_patient_hour_imputed` | Avoids a second ~140-column copy of 1.55M rows |
+| ML mart | Table | View (`mart.ml_features_patient_hour`), materialised once as Parquet by the export | Avoids a ~3 GB duplicate; read cost is a 4-way key join |
+| Reference statistics | dbt model in SQL | Polars, in `sepsis export`, from the train Parquet, loaded into `mart.train_reference_stats` (a documented dbt source). Membership stays in dbt (`split_scheme_membership`) and is tested there | Postgres evaluates ~200 percentile aggregates of one GROUP BY concurrently, each with its own sort: the query drove the host to 0.4 GB free and was cancelled. Polars: 23 s, 0.8 GB |
+| Export | One file per split | Batches of 2,500 patients, one Parquet part each; `meta_split_random` kept inside the files as well as in the folder name | One-shot CSV→Parquet of the ~280-column train split peaked at 3.7 GB; batched 1.2 GB |
+| Postgres memory | `shared_buffers` 1 GB, `work_mem` 64 MB | 512 MB / 32 MB | Shares a 14 GB laptop with the IDE and browser |
+| Constraints | Post-hook PKs/FKs | PK/unique names carry the dbt invocation id | dbt's rename-and-swap leaves the old copy's index names in place; fixed names collide on rebuild |
+| Leakage-test patients | Chosen later | 9 fixed patients in `sepsis_pipeline/leakage.py` (both hospitals and outcomes, septic onset after the 30 h cut, one record starting at hour 2) | Needed by the truncation test and always included in `--sample` |
+| TimescaleDB conversion | One `DO` block converting all chunks | `02_columnstore.sql` only enables the columnstore; chunks are converted one per transaction (`if_not_columnstore => true`), and `sepsis timescale --resume` continues from the current `ts.*` state | Two runs were stopped by host memory pressure (the WSL VM keeps page cache after writing 10.5M rows twice); resuming avoids redoing finished work |
+| Multi-statement scripts | One `execute` per file | Scripts split on `-- @@ statement break` lines | Postgres runs a multi-statement string as one implicit transaction, which `refresh_continuous_aggregate` refuses |
+| Split test | ±0.5 percentage points per stratum | Within one patient of 70/15/15 per stratum | ±0.5% is impossible in small sample strata (e2e test); on the full data one patient is < 0.1% |
+| Windows launchers | `sepsis` console script | Also `python -m sepsis_pipeline`; dbt is started through `python.exe` | Windows Application Control blocks unsigned venv launchers |
+
+Runtimes (full data): extract 8.4 min first run / 30 s re-verify; bronze 59 s; profile 23 s;
+dbt staging+silver ≈ 70 s, imputation+features+labels ≈ 4.5 min, gold ≈ 2 min, marts ≈ 40 s;
+export ≈ 2.2 min; TimescaleDB add-on ≈ 4 min (full rebuild). End-to-end test on a 409-patient sample: 70 s.
+

@@ -1,13 +1,15 @@
--- Split proportions are within +-0.5 percentage points of 70/15/15 in every stratum
--- (hospital x septic), and CV folds of train patients differ by at most 1 patient per stratum.
+-- Split sizes are within one patient of 70/15/15 in every stratum (hospital x septic), and CV
+-- folds of train patients differ by at most one patient per stratum. Count-based, so it holds
+-- for samples too; on the full data (smallest stratum 1,142 patients) one patient is < 0.1 %,
+-- well inside the plan's +-0.5 % target.
 with strata as (
     select
         source_set,
         is_sepsis,
         count(*) as n,
-        avg((split_random = 'train')::int) as train_share,
-        avg((split_random = 'validation')::int) as validation_share,
-        avg((split_random = 'test')::int) as test_share
+        count(*) filter (where split_random = 'train') as n_train,
+        count(*) filter (where split_random = 'validation') as n_validation,
+        count(*) filter (where split_random = 'test') as n_test
     from {{ ref('patient_split') }}
     group by source_set, is_sepsis
 ),
@@ -25,8 +27,8 @@ folds as (
 
 select strata.*, folds.fold_spread
 from strata
-inner join folds using (source_set, is_sepsis)
-where abs(train_share - 0.70) > 0.005
-    or abs(validation_share - 0.15) > 0.005
-    or abs(test_share - 0.15) > 0.005
-    or folds.fold_spread > 1
+left join folds using (source_set, is_sepsis)
+where abs(n_train - 0.70 * n) > 1
+    or abs(n_validation - 0.15 * n) > 1
+    or abs(n_test - 0.15 * n) > 1
+    or coalesce(folds.fold_spread, 0) > 1
