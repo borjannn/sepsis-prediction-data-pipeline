@@ -1,0 +1,119 @@
+version: 2
+
+models:
+  - name: dim_patient
+    description: Patient dimension (descriptive only; SCD Type 1 on a static snapshot).
+    columns:
+      - name: patient_key
+        description: Deterministic surrogate key (row_number over patient_id).
+        data_tests: [unique, not_null]
+      - name: patient_id
+        description: Natural key (source file name).
+        data_tests: [unique, not_null]
+      - name: age_band
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['<18', '18-44', '45-64', '65-79', '80+']
+
+  - name: dim_hospital
+    description: The two public hospital systems (A, B).
+    columns:
+      - name: hospital_key
+        data_tests: [unique, not_null]
+
+  - name: dim_icu_unit
+    description: ICU unit (MICU, SICU, BOTH, UNKNOWN).
+    columns:
+      - name: unit_key
+        data_tests: [unique, not_null]
+
+  - name: dim_stay_hour
+    description: >
+      Hour of ICU stay (replaces a calendar date dimension: the source has only relative time).
+      Covers 1 .. max(ICULOS) + 6 so estimated onsets after the last record still resolve.
+    columns:
+      - name: stay_hour_key
+        data_tests: [unique, not_null]
+
+  - name: dim_variable
+    description: Clinical variable (from the seed variable_catalog).
+    columns:
+      - name: variable_key
+        data_tests: [unique, not_null]
+
+  - name: fact_patient_hour
+    description: Periodic snapshot, grain patient x ICU hour.
+    columns:
+      - name: patient_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: patient_key}
+      - name: hospital_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_hospital'), field: hospital_key}
+      - name: unit_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_icu_unit'), field: unit_key}
+      - name: stay_hour_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
+
+  - name: fact_measurement
+    description: Transaction fact, one row per observed value (outliers and unit mismatches flagged).
+    columns:
+      - name: patient_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: patient_key}
+      - name: variable_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_variable'), field: variable_key}
+      - name: stay_hour_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
+      - name: hospital_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_hospital'), field: hospital_key}
+      - name: unit_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_icu_unit'), field: unit_key}
+
+  - name: fact_icu_stay
+    description: >
+      Accumulating snapshot, one row per ICU stay, with role-playing stay-hour milestones.
+      Whole-stay OUTCOMES: never features.
+    columns:
+      - name: patient_key
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: patient_key}
+      - name: admit_stay_hour_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
+      - name: first_positive_stay_hour_key
+        description: NULL for non-septic stays.
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
+      - name: onset_stay_hour_key
+        description: Estimated sepsis onset (first positive + 6). NULL for non-septic stays.
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
+      - name: last_stay_hour_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_stay_hour'), field: stay_hour_key}
