@@ -68,3 +68,38 @@ models:
 
   - name: int_dq_rejections
     description: Every out-of-range observation with the rule it broke (data-quality report).
+
+  - name: int_patient_hour_imputed
+    description: >
+      Capped LOCF on the clean values: <var>_measured, <var>_hours_since (uncapped) and
+      <var>_last (NULL beyond the seed's locf_max_hours). Past and current hours only.
+      Feature model (leakage contract: parents = clean table + seed).
+    columns:
+      - name: patient_id
+        data_tests: [not_null]
+
+  - name: int_patient_hour_features
+    description: >
+      Causal derived features (keys + derived columns): hemodynamic ratios, SIRS / partial qSOFA
+      / partial SOFA with components and availability counts, 6 h and 24 h rolling vitals
+      statistics on observed values, 1 h / 6 h deltas, measurement intensity, cumulative
+      abnormal counts. Feature model (parents = imputed table + seed).
+    columns:
+      - name: sofa_partial
+        description: Sum of available SOFA components (0-17 here; no CNS, MAP-only cardiovascular).
+      - name: sirs_count
+        description: Number of SIRS criteria met (0-4) among available components.
+
+  - name: int_patient_sepsis
+    description: >
+      One row per patient: sepsis outcome and milestones (t_sepsis = first positive row + 6,
+      as in the official scoring). OUTCOME data: never a feature.
+    columns:
+      - name: patient_id
+        data_tests: [unique, not_null]
+
+  - name: int_patient_hour_labels
+    description: >
+      Targets per patient-hour: label_sepsis (official), label_is_sepsis_patient,
+      label_hours_to_onset (any horizon), and the challenge utility for predicting
+      positive / negative. LABEL data: never a model input.
