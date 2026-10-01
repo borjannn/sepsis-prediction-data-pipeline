@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Secrets
+.env
+
+# Pipeline data (never commit raw data or exports)
+data/
+exports/
+logs/
+
+# dbt
+dbt/sepsis_dw/target/
+dbt/sepsis_dw/dbt_packages/
+dbt/sepsis_dw/logs/
+dbt/sepsis_dw/.user.yml
