@@ -51,7 +51,7 @@ models:
     description: >
       Wide clean patient-hour table: every hour of every patient, each variable holding its
       in-range value or NULL. Base of all feature models; must never contain label or outcome
-      columns (leakage contract, docs/PLAN.md §4.2).
+      columns (leakage contract, docs/PROJECT.md §9).
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

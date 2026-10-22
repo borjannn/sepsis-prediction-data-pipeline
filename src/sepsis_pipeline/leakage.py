@@ -1,4 +1,4 @@
-"""Fixed patients for the truncation leakage test (docs/PLAN.md, Stage 4).
+"""Fixed patients for the truncation leakage test (docs/PROJECT.md §9).
 
 They are always included in `--sample` loads so the test can run on the sample database.
 Chosen from the Stage 2 profile to cover both hospitals and both outcomes; every septic

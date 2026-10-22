@@ -1,6 +1,6 @@
 {#-
     The Data Mining mart: one row per patient-hour, with the column-group contract of
-    docs/PLAN.md §4.2:
+    docs/PROJECT.md §9:
       keys      patient_id, iculos
       meta_*    hospital, ICU unit, split assignments (not features by default)
       feat_*    causal features: static demographics, every imputed variable (observed value,

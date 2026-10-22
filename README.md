@@ -6,7 +6,7 @@ The project has two parts:
 - **Data Warehouses project (this repository's focus):** extract the raw data, clean and transform it, and load it into a PostgreSQL warehouse with a star schema, data-quality checks and analytical (OLAP) views.
 - **Data Mining project (later):** uses the warehouse's **leakage-safe, ML-ready feature mart** to build models for **early sepsis prediction**.
 
-> **Status:** all stages implemented and tested on the full dataset. See [`docs/PLAN.md`](docs/PLAN.md) (plan and implementation log), [`docs/SETUP.md`](docs/SETUP.md) (setup), [`docs/data_profile.md`](docs/data_profile.md) (data profile) and [`docs/timescale_benchmark.md`](docs/timescale_benchmark.md) (TimescaleDB benchmark).
+> **Status:** all stages implemented and tested on the full dataset. See [`docs/README.md`](docs/README.md) (overview), [`docs/PROJECT.md`](docs/PROJECT.md) (how it works, and next steps for data mining), [`docs/SETUP.md`](docs/SETUP.md) (setup) and [`docs/data_profile.md`](docs/data_profile.md) (data profile).
 
 ## Quick start
 
@@ -66,7 +66,7 @@ PhysioNet S3 ─► Extract ─► Bronze (raw) ─► Silver (clean + features)
 
 ```
 ├── README.md
-├── docs/                 # PLAN.md, SETUP.md, generated profile & benchmark reports
+├── docs/                 # README.md, PROJECT.md, SETUP.md, generated data profile
 ├── docker-compose.yml    # PostgreSQL 18 + TimescaleDB
 ├── src/sepsis_pipeline/  # Python: extract, bronze load, profiling, export, CLI
 ├── dbt/sepsis_dw/        # dbt: staging → silver → gold → marts, seeds, tests

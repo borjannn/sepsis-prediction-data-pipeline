@@ -1,5 +1,5 @@
 {#-
-    Deterministic, stratified, patient-level split (docs/PLAN.md, Stage 6a).
+    Deterministic, stratified, patient-level split (docs/PROJECT.md §10).
     Built in Stage 2, before profiling, so every data-driven decision can be made on train only.
     Reads raw directly (not staging), so the leakage_cutoff test var can never change the split.
 -#}

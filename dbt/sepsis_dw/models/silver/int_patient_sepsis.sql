@@ -1,6 +1,6 @@
 {#-
     One row per patient: sepsis outcome and stay milestones. OUTCOME data (known only at the end
-    of the stay): never a feature, never upstream of a feature model (docs/PLAN.md §4.2).
+    of the stay): never a feature, never upstream of a feature model (docs/PROJECT.md §9).
 
     t_sepsis follows the official scoring: first positive row + 6 (labels turn 1 six hours
     before t_sepsis). Patients positive from row 0 are left-censored: given the dataset's

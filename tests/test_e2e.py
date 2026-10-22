@@ -1,6 +1,6 @@
 """End-to-end pipeline test on a stratified sample, in a throwaway database `sepsis_test`.
 
-Includes the truncation leakage test (docs/PLAN.md, Stage 4): rebuilding with the fixed
+Includes the truncation leakage test (docs/PROJECT.md §9): rebuilding with the fixed
 leakage patients' histories cut at hour k must leave every feat_* value at hours <= k
 unchanged, proving that no feature looks into the future.
 

@@ -1,8 +1,10 @@
 # Setup Guide
 
-This guide sets up a development environment for the sepsis data warehouse pipeline. It is written for **Windows 11 + PowerShell** (the primary dev machine). The macOS/Linux equivalents are given where they differ.
+This guide sets up a development environment for the sepsis data preparation pipeline. It is written for **Windows 11 + PowerShell** (the primary dev machine). The macOS/Linux equivalents are given where they differ.
 
 > All stages are implemented. A full run from an empty database takes roughly 25 minutes on a laptop (most of it the first download).
+>
+> **Only want the dataset for data mining?** You don't need any of this. See [§11](#11-for-the-data-mining-team).
 
 ---
 
@@ -233,7 +235,7 @@ You do **not** need to run the warehouse to start working:
 | Init SQL didn't run (schemas missing) | Init scripts only run on an **empty** volume. Run `docker compose down -v && docker compose up -d` (deletes data). |
 | `An Application Control policy has blocked this file` | Use `python -m sepsis_pipeline …` instead of `sepsis …` (§3). |
 | `Could not find profile named 'sepsis_dw'` / `env var required but not provided` | You ran `dbt` directly. Use `sepsis dbt …`, or export the variables listed in §6. |
-| A dependency fails to install on Python 3.14 | Create a 3.13 venv (`py -3.13 -m venv .venv`). Report which package failed, so the plan's risk table can be updated. |
+| A dependency fails to install on Python 3.14 | Create a 3.13 venv (`py -3.13 -m venv .venv`). Report which package failed. |
 | Slow dbt models / Postgres OOM-killed | Raise the WSL 2 memory in `.wslconfig`. Lower `work_mem` in `docker-compose.yml`. Develop with `--sample`. |
 | `could not resize shared memory segment` | `shm_size` is missing or too small in `docker-compose.yml`. Should be `1g`. |
 | Host runs out of memory during `sepsis timescale` | The WSL VM keeps page cache after large writes. Close other heavy apps or cap WSL memory (§5), then `sepsis timescale --resume`. |

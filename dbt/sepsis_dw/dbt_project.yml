@@ -14,7 +14,7 @@ vars:
   # From .env via the sepsis CLI (SPLIT_SEED, SPLIT_VERSION).
   split_seed: "{{ env_var('SPLIT_SEED', '42') }}"
   split_version: "{{ env_var('SPLIT_VERSION', '1') }}"
-  # Set only by the truncation leakage test (docs/PLAN.md, Stage 4).
+  # Set only by the truncation leakage test (docs/PROJECT.md §9).
   leakage_cutoff: null
 
 # Schema names are used verbatim (see macros/generate_schema_name.sql).

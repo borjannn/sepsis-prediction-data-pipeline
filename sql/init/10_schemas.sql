@@ -2,7 +2,7 @@
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
--- One schema per pipeline layer (see docs/PLAN.md §3.2).
+-- One schema per pipeline layer (see docs/PROJECT.md §3).
 CREATE SCHEMA IF NOT EXISTS raw;      -- bronze: exact copy of the source + lineage
 CREATE SCHEMA IF NOT EXISTS staging;  -- silver views: renamed, typed
 CREATE SCHEMA IF NOT EXISTS silver;   -- split, validated, imputed, features, labels

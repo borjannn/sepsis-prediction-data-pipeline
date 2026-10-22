@@ -2,7 +2,7 @@
     Accumulating snapshot fact: one row per ICU stay. Milestones are role-playing foreign keys to
     dim_stay_hour (admission = first recorded hour, first positive label, estimated sepsis
     onset, last recorded hour). Measures are whole-stay OUTCOMES (LOS, sepsis, worst values):
-    exported only with an outcome_ prefix and never used as features (docs/PLAN.md §4.2).
+    exported only with an outcome_ prefix and never used as features (docs/PROJECT.md §9).
 -#}
 {{ config(
     tags=['outcome'],

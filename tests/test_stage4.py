@@ -110,7 +110,7 @@ def test_locf_matches_reference_implementation(db_conn):
 
 
 def test_feature_models_have_the_contracted_parents():
-    """Lineage part of the leakage contract (docs/PLAN.md §4.2), checked on dbt's manifest."""
+    """Lineage part of the leakage contract (docs/PROJECT.md §9), checked on dbt's manifest."""
     result = run_dbt(["parse"], capture=True)
     assert result.returncode == 0, result.stdout[-2000:]
     manifest_path = get_settings().dbt_project_dir / "target" / "manifest.json"

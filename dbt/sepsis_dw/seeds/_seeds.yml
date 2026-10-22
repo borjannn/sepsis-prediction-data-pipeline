@@ -4,7 +4,7 @@ seeds:
   - name: variable_catalog
     description: >
       The 34 clinical variables with their units and clinical constants. These are fixed
-      clinical references, not values fitted to the data (leakage contract, docs/PLAN.md §4.2);
+      clinical references, not values fitted to the data (leakage contract, docs/PROJECT.md §9);
       they were only sanity-checked against the train-only profile (docs/data_profile.md),
       p0.1/p99.9, so plausible tails are not cut.
 
